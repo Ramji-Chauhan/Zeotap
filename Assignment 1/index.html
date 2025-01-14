@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Sheets Clone</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .toolbar {
+      display: flex;
+      background-color: #f1f1f1;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .toolbar button {
+      margin-right: 10px;
+      padding: 5px 10px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+      cursor: pointer;
+    }
+
+    .toolbar input {
+      flex: 1;
+      padding: 5px;
+      border: 1px solid #ccc;
+    }
+
+    .spreadsheet {
+      display: grid;
+      grid-template-columns: repeat(26, 100px);
+      grid-auto-rows: 30px;
+      width: 100vw;
+      height: calc(100vh - 50px);
+      overflow: auto;
+      border-collapse: collapse;
+      border: 1px solid #ccc;
+    }
+
+    .cell {
+      width: 100px;
+      height: 30px;
+      border: 1px solid #ccc;
+      padding: 5px;
+      box-sizing: border-box;
+      text-align: left;
+    }
+
+    .cell.selected {
+      background-color: #cce5ff;
+      border: 2px solid #007bff;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="applyFormat('bold')">Bold</button>
+    <button onclick="applyFormat('italic')">Italic</button>
+    <button onclick="applyFormat('uppercase')">Uppercase</button>
+    <button onclick="applyFormat('lowercase')">Lowercase</button>
+    <button onclick="calculate('SUM')">SUM</button>
+    <button onclick="calculate('AVERAGE')">AVERAGE</button>
+    <button onclick="calculate('MAX')">MAX</button>
+    <button onclick="calculate('MIN')">MIN</button>
+    <button onclick="calculate('COUNT')">COUNT</button>
+    <button onclick="trimAllCells()">TRIM</button>
+    <button onclick="removeDuplicates()">Remove Duplicates</button>
+    <button onclick="findAndReplace()">Find & Replace</button>
+    <button onclick="saveSpreadsheet()">Save</button>
+    <button onclick="loadSpreadsheet()">Load</button>
+    <button onclick="createChart()">Create Chart</button>
+    <input type="text" id="formulaBar" placeholder="Enter formula or value...">
+  </div>
+  <div id="spreadsheet" class="spreadsheet"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const spreadsheet = document.getElementById('spreadsheet');
+    const formulaBar = document.getElementById('formulaBar');
+
+    // Initialize spreadsheet cells to fill the screen
+    const rows = Math.ceil(window.innerHeight / 30) - 2; // 2 for toolbar
+    const cols = 26;
+    for (let i = 0; i < rows * cols; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.contentEditable = true;
+      cell.addEventListener('click', () => selectCell(cell));
+      cell.addEventListener('input', () => updateFormulaBar(cell));
+      spreadsheet.appendChild(cell);
+    }
+
+    let selectedCell = null;
+
+    function selectCell(cell) {
+      if (selectedCell) {
+        selectedCell.classList.remove('selected');
+      }
+      selectedCell = cell;
+      selectedCell.classList.add('selected');
+      formulaBar.value = selectedCell.innerText;
+    }
+
+    function updateFormulaBar(cell) {
+      if (selectedCell === cell) {
+        formulaBar.value = cell.innerText;
+      }
+    }
+
+    formulaBar.addEventListener('input', () => {
+      if (selectedCell) {
+        selectedCell.innerText = formulaBar.value;
+      }
+    });
+
+    function applyFormat(format) {
+      if (!selectedCell) return;
+
+      switch (format) {
+        case 'bold':
+          selectedCell.style.fontWeight = selectedCell.style.fontWeight === 'bold' ? 'normal' : 'bold';
+          break;
+        case 'italic':
+          selectedCell.style.fontStyle = selectedCell.style.fontStyle === 'italic' ? 'normal' : 'italic';
+          break;
+        case 'uppercase':
+          selectedCell.innerText = selectedCell.innerText.toUpperCase();
+          break;
+        case 'lowercase':
+          selectedCell.innerText = selectedCell.innerText.toLowerCase();
+          break;
+      }
+    }
+
+    function calculate(type) {
+      const range = prompt("Enter the range (e.g., A1:A10):");
+      const cells = getCellsFromRange(range);
+
+      let result;
+      switch (type) {
+        case 'SUM':
+          result = cells.reduce((sum, cell) => sum + parseFloat(cell.innerText || 0), 0);
+          break;
+        case 'AVERAGE':
+          result = cells.reduce((sum, cell) => sum + parseFloat(cell.innerText || 0), 0) / cells.length;
+          break;
+        case 'MAX':
+          result = Math.max(...cells.map(cell => parseFloat(cell.innerText || 0)));
+          break;
+        case 'MIN':
+          result = Math.min(...cells.map(cell => parseFloat(cell.innerText || 0)));
+          break;
+        case 'COUNT':
+          result = cells.filter(cell => !isNaN(parseFloat(cell.innerText))).length;
+          break;
+      }
+
+      alert(`${type}: ${result}`);
+    }
+
+    function trimAllCells() {
+      Array.from(spreadsheet.children).forEach(cell => {
+        cell.innerText = cell.innerText.trim();
+      });
+    }
+
+    function removeDuplicates() {
+      const rows = Array.from(spreadsheet.children);
+      const uniqueRows = [];
+      rows.forEach(row => {
+        if (!uniqueRows.some(unique => unique.innerText === row.innerText)) {
+          uniqueRows.push(row);
+        }
+      });
+      spreadsheet.innerHTML = '';
+      uniqueRows.forEach(row => spreadsheet.appendChild(row));
+    }
+
+    function findAndReplace() {
+      const findText = prompt("Enter the text to find:");
+      const replaceText = prompt("Enter the replacement text:");
+      Array.from(spreadsheet.children).forEach(cell => {
+        if (cell.innerText.includes(findText)) {
+          cell.innerText = cell.innerText.replace(findText, replaceText);
+        }
+      });
+    }
+
+    function getCellsFromRange(range) {
+      const match = range.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
+      if (!match) {
+        alert('Invalid range!');
+        return [];
+      }
+
+      const [startCol, startRow, endCol, endRow] = [
+        match[1].charCodeAt(0) - 65, // Convert column letter to index
+        parseInt(match[2], 10) - 1,
+        match[3].charCodeAt(0) - 65,
+        parseInt(match[4], 10) - 1,
+      ];
+
+      const cells = [];
+      for (let row = startRow; row <= endRow; row++) {
+        for (let col = startCol; col <= endCol; col++) {
+          const index = row * cols + col; // Adjusted for dynamic columns
+          cells.push(spreadsheet.children[index]);
+        }
+      }
+
+      return cells;
+    }
+
+    function saveSpreadsheet() {
+      const data = Array.from(spreadsheet.children).map(cell => cell.innerText);
+      localStorage.setItem('spreadsheetData', JSON.stringify(data));
+      alert('Spreadsheet saved successfully!');
+    }
+
+    function loadSpreadsheet() {
+      const data = JSON.parse(localStorage.getItem('spreadsheetData') || '[]');
+      Array.from(spreadsheet.children).forEach((cell, index) => {
+        cell.innerText = data[index] || '';
+      });
+      alert('Spreadsheet loaded successfully!');
+    }
+
+    function createChart() {
+      const range = prompt('Enter the range (e.g., A1:A10):');
+      const cells = getCellsFromRange(range);
+      const data = cells.map(cell => parseFloat(cell.innerText || 0));
+
+      const canvas = document.createElement('canvas');
+      canvas.id = 'chartCanvas';
+      document.body.appendChild(canvas);
+
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.map((_, i) => `Cell ${i + 1}`),
+          datasets: [{
+            label: 'Chart Data',
+            data: data,
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          }]
+        }
+      });
+    }
+  </script>
+</body>
+</html>
